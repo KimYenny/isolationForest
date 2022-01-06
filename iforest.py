@@ -4,47 +4,16 @@ Created on Tue Jan  4 15:56:31 2022
 
 @author: Yeeun Kim
 
-
-#Testing Data
-        
-X_n = np.random.multivariate_normal(size = 500, mean = np.array([1,4,2,3,6,8,4]), cov = np.eye(7))
-X_an = np.random.multivariate_normal(size = 10, mean = np.array([10,4,5,3,0,8,9]), cov = np.eye(7))
-X = pd.concat([pd.DataFrame(X_n), pd.DataFrame(X_an)])
-X = X.sample(frac=1).reset_index(drop = True)
-        
-# Testing for iTree
-arraytree = IsolationTree(3)
-arraytree.split(X)
-arraytree.path_length
-arraytree.predicted
-predicted = arraytree.predict(X)
-
-# Testing for iForest
-iforest = IsolationForest()
-iforest.fit(X)
-anomaly_score = iforest.anomaly_score()['anomaly_score']
-
-#
-from sklearn.decomposition import PCA
-from matplotlib import pyplot as plt
-import seaborn as sns
-
-pca = PCA(n_components = 2)
-X_pca = pca.fit_transform(X)
-
-cmap = sns.cubehelix_palette(as_cmap=True)
-
-f, ax = plt.subplots()
-points = ax.scatter(X_pca[:,0], X_pca[:,1],
-                    c=anomaly_score, s=50, cmap=cmap, alpha = 1)
-f.colorbar(points)
 """
 import numpy as np
 import pandas as pd
 from math import e
 
 def harmonic_number(n):
-    return np.log(n) + e 
+    if n == 1:
+        return 0
+    else:
+        return np.log(n) + e 
 
 class IsolationTree():
     # implementaion with array
@@ -52,7 +21,7 @@ class IsolationTree():
     def __init__(self, max_depth = None):
         self.max_depth = max_depth
         
-    # for convinience
+    # class functions for convinience
     def __isLeft(self, index):
         return index % 2 == 1
     
@@ -70,15 +39,6 @@ class IsolationTree():
             return int((index - 1)/2)
         else:
             return int((index - 2)/2)
-        
-    def __left(self, index):
-        return self.itree[self.__left_index(index)]
-    
-    def __right(self, index):
-        return self.itree[self.__right_index(index)]
-    
-    def __parent(self, index):
-        return self.itree[self.__parent_index(index)]
     
     def __is_leaf(self,index):
         is_max_depth = index >= 2**self.max_depth - 1
