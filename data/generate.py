@@ -28,6 +28,10 @@ X2 = np.sin(X1) + error
 plt.scatter(X1,X2)
 
 X = pd.DataFrame({'x1':X1, 'x2':X2})
+X['2'] = np.random.uniform(-4,4, size = n + m)
+X['3'] = np.random.uniform(-3,3, size = n + m)
+X['4'] = np.random.uniform(-5,4, size = n + m)
+
 X.to_csv("C:/Users/user/Desktop/iforest/data/sin.csv", index = False)
 
 #%%
@@ -40,10 +44,15 @@ sign = np.random.binomial(p = 0.5, n = 1, size = n)*2 - 1
 error = np.random.normal(size = n , scale = 0.7)
 X2 = sign*np.sqrt(r**2 - X1**2) + error
 
-X_normal = pd.DataFrame({'0':X1,'1':X2})
+X_normal = pd.DataFrame({'0':X1,'1':X2,})
 X_anomaly = pd.DataFrame(np.random.multivariate_normal(size = m, mean = [0,0], cov = np.eye(2)*0.3))
 X_normal.columns = X_anomaly.columns
 X = pd.concat([X_normal, X_anomaly], ignore_index = True)
+
+X['2'] = np.random.uniform(-4,4, size = n + m)
+X['3'] = np.random.uniform(-3,3, size = n + m)
+X['4'] = np.random.uniform(-5,4, size = n + m)
+
 
 plt.scatter(X[0], X[1])
 
