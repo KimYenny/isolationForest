@@ -7,7 +7,14 @@ Created on Sat Jan  8 15:55:18 2022
 
 import pandas as pd
 import numpy as np
+
+# for Isolation Tree
 from metric import harmonic_number
+
+# for Kmeans based Isolation Tree
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+        
 
 class BinaryTree_array():
     
@@ -37,11 +44,7 @@ class BinaryTree_array():
     
     
 class IsolationTree(BinaryTree_array):
-    """
-    split(X) : Split the isolation tree with input data 
     
-    predict(X) : 
-    """
     def __init__(self, max_depth = None, extend = False):
         super().__init__(max_depth = max_depth)
         self.extend = extend
@@ -149,7 +152,7 @@ class IsolationTree(BinaryTree_array):
         for x_idx in X.index:
             predicted.loc[x_idx] = self.__predict(X.loc[x_idx:x_idx])
             
-        return predicted            
+        return predicted
     
     def __predict(self, x):
         
@@ -164,3 +167,162 @@ class IsolationTree(BinaryTree_array):
         
         return self.path_length[idx]
     
+    
+class KmeansIsolationTree():
+    def __init__(self, X,
+                 depth = 0, max_depth = None, max_cluster = 5):
+        
+        self.X = X
+        self.n, self.p = X.shape
+        
+        self.depth = depth
+        self.child = list()
+        
+        self.max_depth = max_depth
+        self.max_cluster = max_cluster
+        
+        if depth == 0:
+            self.score_value_ = pd.DataFrame(index = X.index, data = {'score':0})
+        
+    def split(self):
+        
+        if self.max_depth is None:
+            self.max_depth = self.n - 1
+        
+        # split
+        if self.depth < self.max_depth and self.n > 1:
+            self.__split(self.X)
+            
+            for _child in self.child:
+                _child.split()
+            
+    def __split(self, x):
+        # condition
+        #   self.depth < self.max_depth
+        #   self.n > 1
+        
+        c, labels = self.__elbow(x)
+        
+        # update score value
+        self.score_value_ += self._score_values(x, labels)
+                
+        # split
+        for idx, c_idx in enumerate(range(c)):
+            
+            _x = x.loc[labels == idx]
+            _child = KmeansIsolationTree(X = _x, 
+                                         depth = self.depth + 1,
+                                         max_depth = self.max_depth)
+            _child.score_value_ = self.score_value_.loc[labels == idx]
+            
+            # append children
+            self.child.append(_child)
+            
+    def __elbow(self, x):
+        
+        if x.shape[0] == 2: # n = 2
+            return 2, np.array([0,1])
+        
+        elif x.shape[0] == 3: # n = 3
+            km = KMeans(n_clusters = 2)
+            km.fit(x)
+            
+            return 2, km.labels_
+        
+        else: # n > 3
+            max_cluster = min(x.shape[0]-1, self.max_cluster)
+            Ks = range(2, max_cluster + 1)
+            
+            # Kmeans Methods with differenc k
+            Km = [KMeans(n_clusters = k).fit(x) for k in Ks]
+            
+            # Silhouette score
+            score = [silhouette_score(x, Km[ki].labels_) for ki in range(len(Ks))]
+            
+            # the optimal k
+            k_idx = np.argmin(score)
+            
+            return Ks[k_idx], Km[k_idx].labels_
+    
+    def _score_values(self, x, labels):
+        """score value for only ONE split point"""
+        
+        score = pd.DataFrame(index = x.index, data = {'score':None})
+        
+        clusters = np.unique(labels)
+        for cluster in clusters:
+            x_cluster = x.loc[labels == cluster]
+            center_cluster = x_cluster.mean()
+            max_cluster = x_cluster.max()
+            min_cluster = x_cluster.min()
+            width_cluster = max(self.__distance(max_cluster, center_cluster),
+                                self.__distance(min_cluster, center_cluster),)
+            
+            for x_index in x_cluster.index:
+                xi = x.loc[x_index]
+                score.loc[x_index] = self.__score_values(xi,
+                                                         center_cluster,
+                                                         width_cluster)
+        return score
+                
+    def __score_values(self, xi, 
+                       center_cluster, width_cluster):
+        """score value for only ONE data point at one split point"""
+        
+        dist_center = self.__distance(xi, center_cluster)
+        
+        if width_cluster == 0:
+            return 1
+        else:
+            return 1 - dist_center/width_cluster
+    
+    def __distance(self, a, b):
+        return np.sqrt(sum((a - b)**2))
+    
+    def score_value(self):
+        """ average score values of all splits"""
+        
+        # find leavse
+        leaves = self.__get_leaves()
+                
+        # average them
+        score = leaves[0].score_value_ / leaves[0].depth
+        
+        for leaf in leaves[1:]:
+            
+            score = pd.concat([score, 
+                               leaf.score_value_ / leaf.depth])
+        
+        score = score.sort_index()
+        self.final_score = score
+        
+        return score
+        
+    def __get_leaves(self):
+        
+        descendant = self.child
+        leaves = list()
+        
+        while len(descendant) > 0:
+            c = descendant.pop()
+            if c.isLeaf():
+                leaves.append(c)
+            else:
+                for cc in c.child:
+                    descendant.append(cc)
+        return leaves
+                    
+        if self.isLeaf():
+            return self.score_value_
+        else:
+            for c in self.child:
+                c.__traverse()
+        
+    def isLeaf(self):
+        return len(self.child) == 0
+        
+    def _search(self):
+        for c in self.child:
+            c._search()
+        else:
+            return 
